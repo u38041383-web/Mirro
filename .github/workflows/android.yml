@@ -1,0 +1,482 @@
+name: Build iPhone Style Camera APK
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: # Aap manually bhi run kar payenge
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: 🚀 Auto-Generate Entire Android Project
+      run: |
+        # 1. Folders banayein
+        mkdir -p app/src/main/java/com/example/customcamera
+        mkdir -p app/src/main/res/layout
+
+        # 2. Project Settings File
+        cat << 'EOF' > settings.gradle.kts
+        pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+        dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
+        rootProject.name = "CustomCamera"
+        include(":app")
+        EOF
+
+        # 3. Main Build File
+        cat << 'EOF' > build.gradle.kts
+        plugins {
+            id("com.android.application") version "8.2.0" apply false
+            id("org.jetbrains.kotlin.android") version "1.9.0" apply false
+        }
+        EOF
+
+        # 4. App Build File
+        cat << 'EOF' > app/build.gradle.kts
+        plugins {
+            id("com.android.application")
+            id("org.jetbrains.kotlin.android")
+        }
+        android {
+            namespace = "com.example.customcamera"
+            compileSdk = 34
+            defaultConfig {
+                applicationId = "com.example.customcamera"
+                minSdk = 24
+                targetSdk = 34
+                versionCode = 1
+                versionName = "1.0"
+            }
+            buildTypes {
+                getByName("release") {
+                    isMinifyEnabled = false
+                    proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+                }
+            }
+            compileOptions {
+                sourceCompatibility = JavaVersion.VERSION_1_8
+                targetCompatibility = JavaVersion.VERSION_1_8
+            }
+            kotlinOptions { jvmTarget = "1.8" }
+            buildFeatures { viewBinding = true }
+        }
+        dependencies {
+            implementation("androidx.core:core-ktx:1.12.0")
+            implementation("androidx.appcompat:appcompat:1.6.1")
+            implementation("com.google.android.material:material:1.11.0")
+            implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+            val cameraxVersion = "1.3.1"
+            implementation("androidx.camera:camera-core:$cameraxVersion")
+            implementation("androidx.camera:camera-camera2:$cameraxVersion")
+            implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
+            implementation("androidx.camera:camera-view:$cameraxVersion")
+            implementation("androidx.camera:camera-extensions:$cameraxVersion")
+        }
+        EOF
+
+        # 5. Android Manifest File
+        cat << 'EOF' > app/src/main/AndroidManifest.xml
+        <?xml version="1.0" encoding="utf-8"?>
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <uses-feature android:name="android.hardware.camera.any" />
+            <uses-permission android:name="android.permission.CAMERA" />
+            <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+            <application android:allowBackup="true" android:icon="@mipmap/ic_launcher" android:label="iPhone Camera" android:roundIcon="@mipmap/ic_launcher_round" android:supportsRtl="true" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+                <activity android:name=".MainActivity" android:exported="true">
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN" />
+                        <category android:name="android.intent.category.LAUNCHER" />
+                    </intent-filter>
+                </activity>
+            </application>
+        </manifest>
+        EOF
+
+        # 6. UI Layout (activity_main.xml)
+        cat << 'EOF' > app/src/main/res/layout/activity_main.xml
+        <?xml version="1.0" encoding="utf-8"?>
+        <androidx.constraintlayout.widget.ConstraintLayout 
+            xmlns:android="http://schemas.android.com/apk/res/android"
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#000000">
+
+            <androidx.camera.view.PreviewView
+                android:id="@+id/viewFinder"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+            <View
+                android:id="@+id/shutterFlash"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#FFFFFF"
+                android:alpha="0"
+                android:elevation="10dp" />
+
+            <LinearLayout
+                android:id="@+id/topBar"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:paddingHorizontal="20dp"
+                android:background="#40000000"
+                app:layout_constraintTop_toTopOf="parent">
+
+                <ImageButton
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_compass"
+                    app:tint="#FFCC00" /> 
+
+                <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+                
+                <ImageButton
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/arrow_down_float"
+                    app:tint="#FFFFFF" />
+
+                <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+
+                <ImageButton
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/presence_online"
+                    app:tint="#FFFFFF" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/txtStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:background="@drawable/tooltip_frame_dark"
+                app:layout_constraintTop_toBottomOf="@id/topBar"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                android:layout_marginTop="16dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="180dp"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="#A6000000"
+                app:layout_constraintBottom_toBottomOf="parent">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    android:layout_marginBottom="16dp"
+                    android:background="@drawable/button_onoff_indicator_on"
+                    android:backgroundTint="#80000000"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="4dp">
+                    
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0.5"
+                        android:textColor="#FFFFFF"
+                        android:textSize="12sp"
+                        android:layout_marginEnd="16dp"/>
+                    
+                    <TextView
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:text="1x"
+                        android:textColor="#FFCC00"
+                        android:textStyle="bold"
+                        android:textSize="13sp"
+                        android:gravity="center"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:layout_marginEnd="16dp"/>
+                        
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="2"
+                        android:textColor="#FFFFFF"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="24dp">
+
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="VIDEO" android:textColor="#B3FFFFFF" android:textSize="13sp" android:layout_marginEnd="20dp" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="PHOTO" android:textColor="#FFCC00" android:textStyle="bold" android:textSize="13sp" android:layout_marginEnd="20dp" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="PORTRAIT" android:textColor="#B3FFFFFF" android:textSize="13sp" />
+                </LinearLayout>
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="40dp">
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="45dp"
+                        android:layout_height="45dp"
+                        android:layout_alignParentStart="true"
+                        android:layout_centerVertical="true"
+                        app:cardCornerRadius="8dp"
+                        app:cardBackgroundColor="#4DFFFFFF" />
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/btnCapture"
+                        android:layout_width="76dp"
+                        android:layout_height="76dp"
+                        android:layout_centerInParent="true"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:cardBackgroundColor="@android:color/transparent"
+                        app:cardCornerRadius="38dp"
+                        app:strokeColor="#FFFFFF"
+                        app:strokeWidth="4dp">
+
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
+                            android:layout_gravity="center"
+                            app:cardBackgroundColor="#FFFFFF"
+                            app:cardCornerRadius="28dp" />
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <ImageButton
+                        android:layout_width="45dp"
+                        android:layout_height="45dp"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@android:drawable/ic_popup_sync"
+                        app:tint="#FFFFFF" />
+                </RelativeLayout>
+            </LinearLayout>
+        </androidx.constraintlayout.widget.ConstraintLayout>
+        EOF
+
+        # 7. Kotlin Logic File
+        cat << 'EOF' > app/src/main/java/com/example/customcamera/MainActivity.kt
+        package com.example.customcamera
+
+        import android.Manifest
+        import android.content.ContentValues
+        import android.content.pm.PackageManager
+        import android.graphics.Bitmap
+        import android.graphics.Canvas
+        import android.graphics.ColorMatrix
+        import android.graphics.ColorMatrixColorFilter
+        import android.graphics.Paint
+        import android.os.Build
+        import android.os.Bundle
+        import android.provider.MediaStore
+        import android.util.Log
+        import android.view.View
+        import android.widget.TextView
+        import android.widget.Toast
+        import androidx.activity.result.contract.ActivityResultContracts
+        import androidx.appcompat.app.AppCompatActivity
+        import androidx.camera.core.*
+        import androidx.camera.extensions.ExtensionMode
+        import androidx.camera.extensions.ExtensionsManager
+        import androidx.camera.lifecycle.ProcessCameraProvider
+        import androidx.camera.view.PreviewView
+        import androidx.core.content.ContextCompat
+        import java.io.OutputStream
+        import java.text.SimpleDateFormat
+        import java.util.Locale
+        import java.util.concurrent.ExecutorService
+        import java.util.concurrent.Executors
+
+        class MainActivity : AppCompatActivity() {
+
+            private lateinit var viewFinder: PreviewView
+            private lateinit var btnCapture: View
+            private lateinit var txtStatus: TextView
+            private lateinit var shutterFlash: View
+
+            private var imageCapture: ImageCapture? = null
+            private lateinit var cameraExecutor: ExecutorService
+
+            private val requestPermissionLauncher = registerForActivityResult(
+                ActivityResultContracts.RequestPermission()
+            ) { isGranted: Boolean ->
+                if (isGranted) { startCamera() } else { Toast.makeText(this, "Camera permission is required!", Toast.LENGTH_SHORT).show() }
+            }
+
+            override fun onCreate(savedInstanceState: Bundle?) {
+                super.onCreate(savedInstanceState)
+                setContentView(R.layout.activity_main)
+
+                viewFinder = findViewById(R.id.viewFinder)
+                btnCapture = findViewById(R.id.btnCapture)
+                txtStatus = findViewById(R.id.txtStatus)
+                shutterFlash = findViewById(R.id.shutterFlash)
+
+                cameraExecutor = Executors.newSingleThreadExecutor()
+
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                    startCamera()
+                } else {
+                    requestPermissionLauncher.launch(Manifest.permission.CAMERA)
+                }
+
+                btnCapture.setOnClickListener {
+                    shutterFlash.alpha = 1f
+                    shutterFlash.animate().alpha(0f).setDuration(200).start()
+                    takeAndProcessPhoto()
+                }
+            }
+
+            private fun startCamera() {
+                val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
+                cameraProviderFuture.addListener({
+                    val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
+                    val extensionsManagerFuture = ExtensionsManager.getInstanceAsync(this, cameraProvider)
+                    
+                    extensionsManagerFuture.addListener({
+                        val extensionsManager = extensionsManagerFuture.get()
+                        var cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
+                        if (extensionsManager.isExtensionAvailable(cameraSelector, ExtensionMode.AUTO)) {
+                            cameraSelector = extensionsManager.getExtensionEnabledCameraSelector(cameraSelector, ExtensionMode.AUTO)
+                        }
+
+                        val preview = Preview.Builder().build().also {
+                            it.setSurfaceProvider(viewFinder.surfaceProvider)
+                        }
+
+                        imageCapture = ImageCapture.Builder()
+                            .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+                            .build()
+
+                        try {
+                            cameraProvider.unbindAll()
+                            cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture)
+                            txtStatus.text = ""
+                        } catch (exc: Exception) {
+                            Log.e("iPhoneCamera", "Binding failed", exc)
+                        }
+
+                    }, ContextCompat.getMainExecutor(this))
+
+                }, ContextCompat.getMainExecutor(this))
+            }
+
+            private fun takeAndProcessPhoto() {
+                val imageCapture = imageCapture ?: return
+                txtStatus.text = "Processing..."
+
+                imageCapture.takePicture(
+                    ContextCompat.getMainExecutor(this),
+                    object : ImageCapture.OnImageCapturedCallback() {
+                        override fun onCaptureSuccess(image: ImageProxy) {
+                            super.onCaptureSuccess(image)
+                            val bitmap = image.toBitmap()
+                            image.close()
+
+                            cameraExecutor.execute {
+                                val processedBitmap = applyProPhotonicEngine(bitmap)
+                                saveImageToGallery(processedBitmap)
+
+                                runOnUiThread {
+                                    txtStatus.text = "" 
+                                    Toast.makeText(applicationContext, "Photo Saved!", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+
+                        override fun onError(exception: ImageCaptureException) {
+                            Log.e("iPhoneCamera", "Capture failed: ${exception.message}", exception)
+                            txtStatus.text = "Failed"
+                        }
+                    }
+                )
+            }
+
+            private fun applyProPhotonicEngine(input: Bitmap): Bitmap {
+                val contrast = 1.15f 
+                val translate = (-0.5f * contrast + 0.5f) * 255f
+                val contrastMatrix = ColorMatrix(floatArrayOf(
+                    contrast, 0f, 0f, 0f, translate,
+                    0f, contrast, 0f, 0f, translate,
+                    0f, 0f, contrast, 0f, translate,
+                    0f, 0f, 0f, 1f, 0f
+                ))
+
+                val colorMatrix = ColorMatrix(floatArrayOf(
+                    1.08f, 0.00f, 0.00f, 0.0f, 5.0f,  
+                    0.00f, 1.05f, 0.00f, 0.0f, 2.0f,  
+                    0.00f, 0.00f, 0.95f, 0.0f, 0.0f,  
+                    0.00f, 0.00f, 0.00f, 1.0f, 0.0f   
+                ))
+
+                contrastMatrix.postConcat(colorMatrix)
+
+                val paint = Paint()
+                paint.colorFilter = ColorMatrixColorFilter(contrastMatrix)
+
+                val output = Bitmap.createBitmap(input.width, input.height, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(output)
+                canvas.drawBitmap(input, 0f, 0f, paint)
+                return output
+            }
+
+            private fun saveImageToGallery(bitmap: Bitmap) {
+                val name = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(System.currentTimeMillis())
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, "APPLE_$name.jpg") 
+                    put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/iPhoneCamera")
+                    }
+                }
+
+                val resolver = contentResolver
+                val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+
+                uri?.let {
+                    val stream: OutputStream? = resolver.openOutputStream(it)
+                    stream?.use { outputStream ->
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
+                    }
+                }
+            }
+
+            override fun onDestroy() {
+                super.onDestroy()
+                cameraExecutor.shutdown()
+            }
+        }
+        EOF
+
+    - name: 🛠️ Setup Gradle Wrapper (Fixes missing gradlew error)
+      run: gradle wrapper --gradle-version 8.4
+
+    - name: 🔨 Build APK
+      run: ./gradlew assembleDebug
+
+    - name: 📦 Upload Final APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: iphone-style-camera-app
+        path: app/build/outputs/apk/debug/app-debug.apk
