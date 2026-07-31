@@ -3,7 +3,7 @@ name: Build iPhone Style Camera APK
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch: # Aap manually bhi run kar payenge
+  workflow_dispatch:
 
 jobs:
   build:
@@ -16,13 +16,14 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+
     - name: 🚀 Auto-Generate Entire Android Project
       run: |
-        # 1. Folders banayein
         mkdir -p app/src/main/java/com/example/customcamera
         mkdir -p app/src/main/res/layout
 
-        # 2. Project Settings File
         cat << 'EOF' > settings.gradle.kts
         pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
         dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
@@ -30,7 +31,6 @@ jobs:
         include(":app")
         EOF
 
-        # 3. Main Build File
         cat << 'EOF' > build.gradle.kts
         plugins {
             id("com.android.application") version "8.2.0" apply false
@@ -38,7 +38,6 @@ jobs:
         }
         EOF
 
-        # 4. App Build File
         cat << 'EOF' > app/build.gradle.kts
         plugins {
             id("com.android.application")
@@ -81,7 +80,6 @@ jobs:
         }
         EOF
 
-        # 5. Android Manifest File
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -99,7 +97,6 @@ jobs:
         </manifest>
         EOF
 
-        # 6. UI Layout (activity_main.xml)
         cat << 'EOF' > app/src/main/res/layout/activity_main.xml
         <?xml version="1.0" encoding="utf-8"?>
         <androidx.constraintlayout.widget.ConstraintLayout 
@@ -274,7 +271,6 @@ jobs:
         </androidx.constraintlayout.widget.ConstraintLayout>
         EOF
 
-        # 7. Kotlin Logic File
         cat << 'EOF' > app/src/main/java/com/example/customcamera/MainActivity.kt
         package com.example.customcamera
 
@@ -469,11 +465,8 @@ jobs:
         }
         EOF
 
-    - name: 🛠️ Setup Gradle Wrapper (Fixes missing gradlew error)
-      run: gradle wrapper --gradle-version 8.4
-
     - name: 🔨 Build APK
-      run: ./gradlew assembleDebug
+      run: gradle assembleDebug
 
     - name: 📦 Upload Final APK
       uses: actions/upload-artifact@v4
