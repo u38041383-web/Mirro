@@ -16,9 +16,6 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v3
-
     - name: 🚀 Auto-Generate Entire Android Project
       run: |
         mkdir -p app/src/main/java/com/example/customcamera
@@ -465,8 +462,13 @@ jobs:
         }
         EOF
 
+    - name: 📥 Download Direct Portable Gradle
+      run: |
+        wget -q https://services.gradle.org/distributions/gradle-8.4-bin.zip
+        unzip -q gradle-8.4-bin.zip
+
     - name: 🔨 Build APK
-      run: gradle assembleDebug
+      run: ./gradle-8.4/bin/gradle assembleDebug
 
     - name: 📦 Upload Final APK
       uses: actions/upload-artifact@v4
